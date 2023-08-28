@@ -5,14 +5,12 @@ const cors = require("cors");
 const nodemailer = require("nodemailer")
 const mercadopago = require("mercadopago");
 const bodyParser = require("body-parser");
-const { configDotenv } = require("dotenv");
 
 // REPLACE WITH YOUR ACCESS TOKEN AVAILABLE IN: https://developers.mercadopago.com/panel
 mercadopago.configure({
 	access_token: process.env.TOKEN,
 });
 //"APP_USR-8053005066592321-082722-aa7cdc672da067cf92cd3757156955d5-231799293"
-
 
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
@@ -76,12 +74,12 @@ app.post("/contacto", (req, res) => {
 		from: process.env.EMAIL,
         to: "juanchisacco@gmail.com",
 			subject: "ENVIADO DESDE CONTACTO SIB.COM.UY ",
-        html: `<b>Nombre: </b> <p>${req.body.nombre}</p> <br></br> <b>Apellido: </b> 
-		<p>${req.body.apellido}</p> <br></br> <b>Email: </b> <p>${req.body.email}</p> <br></br> <b>Asunto: </b> 
-		<p>${req.body.asunto}</p> <br></br> <b>Mensaje: </b> <p>${req.body.mensaje}`
+        html: `<b>Nombre: </b> <p>${req.body.nombre}</p> <br/> <b>Apellido: </b> 
+		<p>${req.body.apellido}</p> <br/> <b>Email: </b> <p>${req.body.email}</p> <br/> <b>Asunto: </b> 
+		<p>${req.body.asunto}</p> <br/> <b>Mensaje: </b> <p>${req.body.mensaje}`
 	}
 
-	transporter.sendMail(mailOptions, (error, info) => {
+	transporter.sendMail(mailOptions, (error) => {
         if(error) {
             res.status(500).send(error.message)
         } else {
@@ -116,7 +114,7 @@ app.post("/feedback", (req, res) => {
 		 <p>${req.body.userPaymentId}</p> <br/> <b>Tipo de compra: </b><p>${req.body.tipoDeEnvio}</p>`
 	}
 
-	transporter.sendMail(mailOptions, (error, info) => {
+	transporter.sendMail(mailOptions, (error) => {
         if(error) {
             res.status(500).send(error.message)
         } else {
@@ -141,11 +139,17 @@ app.post("/sin_stock", (req, res) => {
 
     let mailBody = ""; // Variable para almacenar el contenido del correo
 
-    req.body.forEach(element => {
-        mailBody += `<b>Nombre Producto: </b> <p>${element.nombreProdSinStock}</p> <br/> <b>Color Producto: </b> 
-					<p>${element.colorProdSinStock}</p> <br/> <b>Talle Producto: </b> <p>${element.talleProdSinStock}
-					</p> <br/> <b>Stock: </b> <p>${element.stockProdSinStock}</p> <br/><hr/>`;
-    });
+	if (req.body.length > 1) {
+		req.body.forEach(element => {
+			mailBody += `<b>Nombre Producto: </b> <p>${element.nombreProdSinStock}</p> <br/> <b>Color Producto: </b> 
+						<p>${element.colorProdSinStock}</p> <br/> <b>Talle Producto: </b> <p>${element.talleProdSinStock}
+						</p> <br/> <b>Stock: </b> <p>${element.stockProdSinStock}</p> <br/><hr/>`;
+		});
+	} else {
+		mailBody += `<b>Nombre Producto: </b> <p>${req.body.nombreProdSinStock}</p> <br/> <b>Color Producto: </b> 
+		<p>${req.body.colorProdSinStock}</p> <br/> <b>Talle Producto: </b> <p>${req.body.talleProdSinStock}
+		</p> <br/> <b>Stock: </b> <p>${req.body.stockProdSinStock}</p> <br/><hr/>`;
+	}
 
     const mailOptions = {
         replyTo: req.body.userMail,
@@ -155,7 +159,66 @@ app.post("/sin_stock", (req, res) => {
         html: mailBody
     }
 
-	transporter.sendMail(mailOptions, (error, info) => {
+	transporter.sendMail(mailOptions, (error) => {
+        if(error) {
+            res.status(500).send(error.message)
+        } else {
+            console.log("Email enviado")
+            res.status(200).json(req.body);
+        }
+      })
+})
+
+//METODO POST
+app.post("/confirmacion_compra", (req, res) => {
+
+	const transporter = nodemailer.createTransport({
+		host: "smtp.titan.email",
+		port: 465,
+		secure: true,
+		auth: {
+			user: process.env.EMAIL,
+			pass: process.env.PASSWORD
+		}
+	});
+
+    let mailBody = "";
+	let tipoEnvio = ""
+
+	if (req.body.tipoDeEnvio === "Tienda") {
+		tipoEnvio = "Retiro en tienda"
+	} else if (req.body.tipoDeEnvio === "Domicilio") {
+		tipoEnvio = "Envio a domicilio"
+	}
+
+	mailBody += `<h1>Confirmación de compra en Sib Shop Uruguay</h1>
+				<br />
+				<p>Gracias por su compra!! En breves nos pondremos en contacto para notificarle del envio o cuando este pronta para ser retirada por la tienda!</p>
+				<br />
+				<b>Numero Identificador de compra:</b> 
+				<p>${req.body.idCompra}</p> 
+				<br/> 
+				<b>Tipo de envio: </b> 
+				<p>${tipoEnvio}</p> 
+				<br/> 
+				<b>Costo total: </b> 
+				<p>$ ${req.body.precioTotal}</p>
+				<br/>
+				<a href="https://sib.com.uy/obtenerOrden/${req.body.idCompra}">				
+					<button>Ver orden</button>
+				</a>
+				<br/><hr/>
+				<p>Este es un email automatizado, por favor no responder.</p>`;
+
+    const mailOptions = {
+        replyTo: process.env.EMAIL,
+        from: process.env.EMAIL,
+        to: req.body.userMail,
+        subject: "Confirmacion de compra en SIB Shop",
+        html: mailBody
+    }
+
+	transporter.sendMail(mailOptions, (error) => {
         if(error) {
             res.status(500).send(error.message)
         } else {
